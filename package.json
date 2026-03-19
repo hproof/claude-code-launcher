@@ -1,0 +1,76 @@
+{
+  "name": "claude-code-launcher",
+  "displayName": "Claude Code Launcher",
+  "description": "在 VS Code 中快速启动 Claude Code",
+  "version": "1.0.0",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "ai",
+    "terminal"
+  ],
+  "activationEvents": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hproof/claude-code-launcher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hproof/claude-code-launcher/issues"
+  },
+  "homepage": "https://github.com/hproof/claude-code-launcher#readme",
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claude-code-launcher.launch",
+        "title": "Launch Claude Code",
+        "category": "Claude Code"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Code Launcher",
+      "properties": {
+        "claudeCodeLauncher.terminalType": {
+          "type": "string",
+          "default": "powershell",
+          "enum": [
+            "default",
+            "cmd",
+            "powershell"
+          ],
+          "enumDescriptions": [
+            "使用 VS Code 默认终端",
+            "使用 CMD",
+            "使用 PowerShell"
+          ],
+          "description": "终端类型"
+        },
+        "claudeCodeLauncher.commandArgs": {
+          "type": "string",
+          "default": "",
+          "description": "Claude Code 命令参数，例如 '-c'"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "18.x",
+    "typescript": "^5.3.2",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  }
+}
