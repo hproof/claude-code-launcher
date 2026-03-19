@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
+import { exec } from 'child_process';
 
 export function activate(context: vscode.ExtensionContext) {
     const disposable = vscode.commands.registerCommand('claude-code-launcher.launch', () => {
@@ -29,69 +29,36 @@ function launchClaudeCode() {
 }
 
 function launchExternalTerminal(cwd: string, command: string, config: vscode.WorkspaceConfiguration) {
-    const platform = process.platform;
-    const externalTerminal = config.get<string>('externalTerminal', 'auto');
+    const terminalType = config.get<string>('externalTerminal', 'powershell');
 
-    let shellCmd: string;
-    let shellArgs: string[];
+    let execCommand: string;
 
-    if (platform === 'win32') {
-        // Windows 平台
-        const terminal = externalTerminal === 'auto' ? detectWindowsTerminal() : externalTerminal;
-        const escapedCommand = command.replace(/"/g, '\\"');
-
-        switch (terminal) {
-            case 'wt':
-                // Windows Terminal - 使用 -NoExit 保持 shell 运行
-                shellCmd = 'wt.exe';
-                shellArgs = ['-d', cwd, 'powershell.exe', '-NoExit', '-Command', command];
-                break;
-            case 'powershell':
-                shellCmd = 'powershell.exe';
-                shellArgs = ['-Command', `Start-Process powershell -ArgumentList '-NoExit','-Command "cd \\"${cwd}\\"; ${escapedCommand}"'`];
-                break;
-            case 'cmd':
-            default:
-                shellCmd = 'cmd.exe';
-                shellArgs = ['/c', 'start', 'cmd', '/k', `cd /d "${cwd}" && ${command}`];
-                break;
-        }
-    } else if (platform === 'darwin') {
-        // macOS - 使用 bash -ic 保持交互式 shell
-        shellCmd = 'osascript';
-        shellArgs = ['-e', `tell application "Terminal" to do script "cd \\"${cwd}\\" && bash -ic '${command}; exec bash'"`];
+    if (terminalType === 'cmd') {
+        // CMD: 使用 start 命令弹出新窗口
+        // 注意: start 后面第一个参数是窗口标题（必需）
+        const escapedCwd = cwd.replace(/"/g, '""');
+        execCommand = `start "Claude Code" cmd /k "cd /d "${escapedCwd}" && ${command}"`;
     } else {
-        // Linux 平台
-        const terminal = externalTerminal === 'auto' ? detectLinuxTerminal() : externalTerminal;
-        shellCmd = terminal;
-
-        switch (terminal) {
-            case 'gnome-terminal':
-                shellArgs = ['--working-directory', cwd, '--', 'bash', '-ic', `${command}; exec bash`];
-                break;
-            case 'konsole':
-                shellArgs = ['--workdir', cwd, '-e', 'bash', '-ic', `${command}; exec bash`];
-                break;
-            case 'xterm':
-            default:
-                shellArgs = ['-e', 'bash', '-ic', `cd "${cwd}" && ${command}; exec bash`];
-                break;
-        }
+        // PowerShell: 使用 start 命令弹出新窗口
+        // 使用单引号包裹路径，避免转义问题
+        const escapedCwd = cwd.replace(/'/g, "''");
+        execCommand = `start "Claude Code" powershell -NoExit -Command "cd '${escapedCwd}'; ${command}"`;
     }
 
-    // 启动外部终端
-    const child = spawn(shellCmd, shellArgs, {
-        detached: true,
-        stdio: 'ignore',
+    // 使用 exec 执行命令，继承环境变量
+    const child = exec(execCommand, {
+        env: process.env,
         windowsHide: false
+    }, (error, stdout, stderr) => {
+        if (error) {
+            vscode.window.showErrorMessage(`启动终端失败: ${error.message}`);
+        }
     });
 
-    child.on('error', (err) => {
-        vscode.window.showErrorMessage(`启动终端失败: ${err.message}`);
+    // 忽略错误，让进程独立运行
+    child.on('error', () => {
+        // 错误已在回调中处理
     });
-
-    // 忽略子进程，让它独立运行
-    child.unref();
 }
 
 function launchIntegratedTerminal(cwd: string, command: string) {
@@ -102,36 +69,6 @@ function launchIntegratedTerminal(cwd: string, command: string) {
 
     terminal.sendText(command);
     terminal.show();
-}
-
-function detectWindowsTerminal(): string {
-    // 优先尝试 Windows Terminal
-    try {
-        // 检查 wt.exe 是否存在
-        const { execSync } = require('child_process');
-        execSync('where wt.exe', { stdio: 'ignore' });
-        return 'wt';
-    } catch {
-        // 回退到 powershell
-        return 'powershell';
-    }
-}
-
-function detectLinuxTerminal(): string {
-    // 按优先级检测 Linux 终端
-    const { execSync } = require('child_process');
-    const terminals = ['gnome-terminal', 'konsole', 'xterm'];
-
-    for (const term of terminals) {
-        try {
-            execSync(`which ${term}`, { stdio: 'ignore' });
-            return term;
-        } catch {
-            continue;
-        }
-    }
-
-    return 'xterm';
 }
 
 export function deactivate() {

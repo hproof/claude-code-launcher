@@ -2,7 +2,7 @@
   "name": "claude-code-launcher",
   "displayName": "Claude Code Launcher",
   "description": "在 VS Code 中快速启动 Claude Code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "hproof",
   "engines": {
     "vscode": "^1.74.0"
@@ -54,24 +54,14 @@
         },
         "claudeCodeLauncher.externalTerminal": {
           "type": "string",
-          "default": "auto",
+          "default": "powershell",
           "enum": [
-            "auto",
-            "cmd",
             "powershell",
-            "wt",
-            "gnome",
-            "konsole",
-            "xterm"
+            "cmd"
           ],
           "enumDescriptions": [
-            "自动检测系统默认终端",
-            "Windows CMD",
             "Windows PowerShell",
-            "Windows Terminal",
-            "Linux GNOME Terminal",
-            "Linux Konsole",
-            "Linux XTerm"
+            "Windows CMD"
           ],
           "description": "外部终端类型（仅当 terminalMode 为 external 时有效）"
         },
