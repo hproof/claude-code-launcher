@@ -1,29 +1,15 @@
 import * as vscode from 'vscode';
-
-// 存储目录与终端的映射关系
-const terminalMap = new Map<string, vscode.Terminal>();
+import { spawn } from 'child_process';
 
 export function activate(context: vscode.ExtensionContext) {
-    // 注册命令
     const disposable = vscode.commands.registerCommand('claude-code-launcher.launch', () => {
         launchClaudeCode();
     });
 
     context.subscriptions.push(disposable);
-
-    // 监听终端关闭事件，清理映射关系
-    vscode.window.onDidCloseTerminal((terminal) => {
-        for (const [dir, term] of terminalMap.entries()) {
-            if (term === terminal) {
-                terminalMap.delete(dir);
-                break;
-            }
-        }
-    });
 }
 
 function launchClaudeCode() {
-    // 获取当前工作目录
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
         vscode.window.showErrorMessage('没有打开的工作区');
@@ -31,66 +17,123 @@ function launchClaudeCode() {
     }
 
     const currentDir = workspaceFolders[0].uri.fsPath;
+    const config = vscode.workspace.getConfiguration('claudeCodeLauncher');
+    const terminalMode = config.get<string>('terminalMode', 'external');
+    const command = config.get<string>('command', 'claude').trim();
 
-    // 检查当前目录是否已有打开的终端
-    const existingTerminal = terminalMap.get(currentDir);
-    if (existingTerminal) {
-        // 如果终端还存在（未关闭），切换到前台
-        const stillExists = vscode.window.terminals.some(t => t === existingTerminal);
-        if (stillExists) {
-            existingTerminal.show();
-            return;
-        } else {
-            // 终端已关闭，从映射中移除
-            terminalMap.delete(currentDir);
+    if (terminalMode === 'external') {
+        launchExternalTerminal(currentDir, command, config);
+    } else {
+        launchIntegratedTerminal(currentDir, command);
+    }
+}
+
+function launchExternalTerminal(cwd: string, command: string, config: vscode.WorkspaceConfiguration) {
+    const platform = process.platform;
+    const externalTerminal = config.get<string>('externalTerminal', 'auto');
+
+    let shellCmd: string;
+    let shellArgs: string[];
+
+    if (platform === 'win32') {
+        // Windows 平台
+        const terminal = externalTerminal === 'auto' ? detectWindowsTerminal() : externalTerminal;
+        const escapedCommand = command.replace(/"/g, '\\"');
+
+        switch (terminal) {
+            case 'wt':
+                // Windows Terminal
+                shellCmd = 'wt.exe';
+                shellArgs = ['-d', cwd, 'powershell.exe', '-Command', command];
+                break;
+            case 'powershell':
+                shellCmd = 'powershell.exe';
+                shellArgs = ['-Command', `Start-Process powershell -ArgumentList '-NoExit','-Command "cd \\"${cwd}\\"; ${escapedCommand}"'`];
+                break;
+            case 'cmd':
+            default:
+                shellCmd = 'cmd.exe';
+                shellArgs = ['/c', 'start', 'cmd', '/k', `cd /d "${cwd}" && ${command}`];
+                break;
+        }
+    } else if (platform === 'darwin') {
+        // macOS
+        shellCmd = 'osascript';
+        shellArgs = ['-e', `tell application "Terminal" to do script "cd \\"${cwd}\\" && ${command}"`];
+    } else {
+        // Linux 平台
+        const terminal = externalTerminal === 'auto' ? detectLinuxTerminal() : externalTerminal;
+        shellCmd = terminal;
+
+        switch (terminal) {
+            case 'gnome-terminal':
+                shellArgs = ['--working-directory', cwd, '--', 'bash', '-c', `${command}; exec bash`];
+                break;
+            case 'konsole':
+                shellArgs = ['--workdir', cwd, '-e', 'bash', '-c', `${command}; exec bash`];
+                break;
+            case 'xterm':
+            default:
+                shellArgs = ['-e', 'bash', '-c', `cd "${cwd}" && ${command}; exec bash`];
+                break;
         }
     }
 
-    // 获取配置
-    const config = vscode.workspace.getConfiguration('claudeCodeLauncher');
-    const terminalType = config.get<string>('terminalType', 'powershell');
-    const commandArgs = config.get<string>('commandArgs', '');
+    // 启动外部终端
+    const child = spawn(shellCmd, shellArgs, {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false
+    });
 
-    // 构建命令
-    const command = `claude ${commandArgs}`.trim();
+    child.on('error', (err) => {
+        vscode.window.showErrorMessage(`启动终端失败: ${err.message}`);
+    });
 
-    // 创建终端选项
-    const terminalOptions: vscode.TerminalOptions = {
-        name: `Claude Code - ${workspaceFolders[0].name}`,
-        cwd: currentDir
-    };
-
-    // 根据配置设置 shell
-    if (terminalType === 'powershell') {
-        terminalOptions.shellPath = getPowerShellPath();
-    } else if (terminalType === 'cmd') {
-        terminalOptions.shellPath = 'cmd.exe';
-    }
-    // default 时不设置 shellPath，使用 VS Code 默认终端
-
-    // 创建终端
-    const terminal = vscode.window.createTerminal(terminalOptions);
-
-    // 发送命令
-    terminal.sendText(command);
-
-    // 显示终端
-    terminal.show();
-
-    // 记录映射关系
-    terminalMap.set(currentDir, terminal);
+    // 忽略子进程，让它独立运行
+    child.unref();
 }
 
-function getPowerShellPath(): string {
-    // Windows 上尝试使用 PowerShell Core 或 Windows PowerShell
-    if (process.platform === 'win32') {
-        // 优先使用 PowerShell Core (pwsh)，如果不存在则使用 Windows PowerShell
-        return 'powershell.exe';
+function launchIntegratedTerminal(cwd: string, command: string) {
+    const terminal = vscode.window.createTerminal({
+        name: 'Claude Code',
+        cwd: cwd
+    });
+
+    terminal.sendText(command);
+    terminal.show();
+}
+
+function detectWindowsTerminal(): string {
+    // 优先尝试 Windows Terminal
+    try {
+        // 检查 wt.exe 是否存在
+        const { execSync } = require('child_process');
+        execSync('where wt.exe', { stdio: 'ignore' });
+        return 'wt';
+    } catch {
+        // 回退到 powershell
+        return 'powershell';
     }
-    return 'pwsh';
+}
+
+function detectLinuxTerminal(): string {
+    // 按优先级检测 Linux 终端
+    const { execSync } = require('child_process');
+    const terminals = ['gnome-terminal', 'konsole', 'xterm'];
+
+    for (const term of terminals) {
+        try {
+            execSync(`which ${term}`, { stdio: 'ignore' });
+            return term;
+        } catch {
+            continue;
+        }
+    }
+
+    return 'xterm';
 }
 
 export function deactivate() {
-    // 清理所有终端映射
-    terminalMap.clear();
+    // 无需清理
 }

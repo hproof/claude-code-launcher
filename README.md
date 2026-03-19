@@ -5,30 +5,69 @@
 ## 功能
 
 - 通过命令面板快速启动 Claude Code
-- 智能复用终端：同一工作目录只会打开一个终端，避免重复创建
-- 支持配置终端类型和命令参数
+- **支持独立的外部终端窗口**（脱离 VS Code，每次执行都打开新窗口）
+- 支持内置终端模式
+- 可配置启动命令和参数
 
 ## 使用方法
 
 1. 打开 VS Code 命令面板（`Ctrl+Shift+P` / `Cmd+Shift+P`）
 2. 输入并执行 `Launch Claude Code`
-3. 插件会在终端中启动 Claude Code
+3. 插件会在**独立的系统终端窗口**中启动 Claude Code
 
 ## 配置项
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `claudeCodeLauncher.terminalType` | string | `powershell` | 终端类型：`default`（默认）、`cmd`、`powershell` |
-| `claudeCodeLauncher.commandArgs` | string | `""` | Claude Code 命令参数，例如 `-c` |
+| `claudeCodeLauncher.terminalMode` | string | `external` | 终端模式：`external`（外部独立窗口，默认）、`integrated`（VS Code 内置终端） |
+| `claudeCodeLauncher.externalTerminal` | string | `auto` | 外部终端类型：`auto`（自动检测）、`cmd`、`powershell`、`wt`（Windows Terminal）、`gnome`、`konsole`、`xterm` |
+| `claudeCodeLauncher.command` | string | `claude` | 启动命令，可包含参数和路径，例如 `claude`、`claude.exe -c`、`d:/myself/claude.exe -c` |
 
 ## 配置示例
 
-在 VS Code 设置中添加：
+### 默认配置（Windows 外部终端，自动检测）
+
+无需配置，安装即用。插件会自动使用 Windows Terminal（如果已安装）或 PowerShell。
+
+### 使用 CMD 作为外部终端
 
 ```json
 {
-  "claudeCodeLauncher.terminalType": "cmd",
-  "claudeCodeLauncher.commandArgs": "-c"
+  "claudeCodeLauncher.externalTerminal": "cmd"
+}
+```
+
+### 使用 Claude Code 的 Continue 模式
+
+```json
+{
+  "claudeCodeLauncher.command": "claude -c"
+}
+```
+
+### 使用自定义路径的 Claude
+
+```json
+{
+  "claudeCodeLauncher.command": "d:/tools/claude.exe -c"
+}
+```
+
+### 使用 VS Code 内置终端
+
+```json
+{
+  "claudeCodeLauncher.terminalMode": "integrated"
+}
+```
+
+### 完整配置示例
+
+```json
+{
+  "claudeCodeLauncher.terminalMode": "external",
+  "claudeCodeLauncher.externalTerminal": "wt",
+  "claudeCodeLauncher.command": "claude"
 }
 ```
 
@@ -47,7 +86,7 @@
 ### 打包安装
 
 ```bash
-npm install -g vsce
+npm install -g @vscode/vsce
 vsce package
 ```
 

@@ -3,7 +3,7 @@
   "displayName": "Claude Code Launcher",
   "description": "在 VS Code 中快速启动 Claude Code",
   "version": "1.0.0",
-  "publisher": "your-publisher",
+  "publisher": "hproof",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -15,7 +15,9 @@
     "ai",
     "terminal"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:claude-code-launcher.launch"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/hproof/claude-code-launcher.git"
@@ -24,6 +26,7 @@
     "url": "https://github.com/hproof/claude-code-launcher/issues"
   },
   "homepage": "https://github.com/hproof/claude-code-launcher#readme",
+  "license": "MIT",
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -36,25 +39,46 @@
     "configuration": {
       "title": "Claude Code Launcher",
       "properties": {
-        "claudeCodeLauncher.terminalType": {
+        "claudeCodeLauncher.terminalMode": {
           "type": "string",
-          "default": "powershell",
+          "default": "external",
           "enum": [
-            "default",
-            "cmd",
-            "powershell"
+            "integrated",
+            "external"
           ],
           "enumDescriptions": [
-            "使用 VS Code 默认终端",
-            "使用 CMD",
-            "使用 PowerShell"
+            "使用 VS Code 内置终端",
+            "使用独立的外部终端窗口（默认）"
           ],
-          "description": "终端类型"
+          "description": "终端模式"
         },
-        "claudeCodeLauncher.commandArgs": {
+        "claudeCodeLauncher.externalTerminal": {
           "type": "string",
-          "default": "",
-          "description": "Claude Code 命令参数，例如 '-c'"
+          "default": "auto",
+          "enum": [
+            "auto",
+            "cmd",
+            "powershell",
+            "wt",
+            "gnome",
+            "konsole",
+            "xterm"
+          ],
+          "enumDescriptions": [
+            "自动检测系统默认终端",
+            "Windows CMD",
+            "Windows PowerShell",
+            "Windows Terminal",
+            "Linux GNOME Terminal",
+            "Linux Konsole",
+            "Linux XTerm"
+          ],
+          "description": "外部终端类型（仅当 terminalMode 为 external 时有效）"
+        },
+        "claudeCodeLauncher.command": {
+          "type": "string",
+          "default": "claude",
+          "description": "Claude Code 启动命令，可包含参数和路径，例如 'claude'、'claude.exe -c'、'd:/myself/claude.exe -c'"
         }
       }
     }
