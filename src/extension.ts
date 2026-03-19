@@ -42,9 +42,9 @@ function launchExternalTerminal(cwd: string, command: string, config: vscode.Wor
 
         switch (terminal) {
             case 'wt':
-                // Windows Terminal
+                // Windows Terminal - 使用 -NoExit 保持 shell 运行
                 shellCmd = 'wt.exe';
-                shellArgs = ['-d', cwd, 'powershell.exe', '-Command', command];
+                shellArgs = ['-d', cwd, 'powershell.exe', '-NoExit', '-Command', command];
                 break;
             case 'powershell':
                 shellCmd = 'powershell.exe';
@@ -57,9 +57,9 @@ function launchExternalTerminal(cwd: string, command: string, config: vscode.Wor
                 break;
         }
     } else if (platform === 'darwin') {
-        // macOS
+        // macOS - 使用 bash -ic 保持交互式 shell
         shellCmd = 'osascript';
-        shellArgs = ['-e', `tell application "Terminal" to do script "cd \\"${cwd}\\" && ${command}"`];
+        shellArgs = ['-e', `tell application "Terminal" to do script "cd \\"${cwd}\\" && bash -ic '${command}; exec bash'"`];
     } else {
         // Linux 平台
         const terminal = externalTerminal === 'auto' ? detectLinuxTerminal() : externalTerminal;
@@ -67,14 +67,14 @@ function launchExternalTerminal(cwd: string, command: string, config: vscode.Wor
 
         switch (terminal) {
             case 'gnome-terminal':
-                shellArgs = ['--working-directory', cwd, '--', 'bash', '-c', `${command}; exec bash`];
+                shellArgs = ['--working-directory', cwd, '--', 'bash', '-ic', `${command}; exec bash`];
                 break;
             case 'konsole':
-                shellArgs = ['--workdir', cwd, '-e', 'bash', '-c', `${command}; exec bash`];
+                shellArgs = ['--workdir', cwd, '-e', 'bash', '-ic', `${command}; exec bash`];
                 break;
             case 'xterm':
             default:
-                shellArgs = ['-e', 'bash', '-c', `cd "${cwd}" && ${command}; exec bash`];
+                shellArgs = ['-e', 'bash', '-ic', `cd "${cwd}" && ${command}; exec bash`];
                 break;
         }
     }
