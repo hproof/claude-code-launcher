@@ -2,7 +2,7 @@
   "name": "claude-code-launcher",
   "displayName": "Claude Code Launcher",
   "description": "在 VS Code 中快速启动 Claude Code",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "hproof",
   "engines": {
     "vscode": "^1.74.0"
@@ -69,6 +69,16 @@
           "type": "string",
           "default": "claude",
           "description": "Claude Code 启动命令，可包含参数和路径，例如 'claude'、'claude.exe -c'、'd:/myself/claude.exe -c'"
+        },
+        "claudeCodeLauncher.pythonVenvEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启动前自动激活 Python 虚拟环境（如果存在）"
+        },
+        "claudeCodeLauncher.pythonVenvDirectory": {
+          "type": "string",
+          "default": "./venv",
+          "description": "Python 虚拟环境目录路径"
         }
       }
     }
